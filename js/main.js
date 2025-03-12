@@ -7,7 +7,11 @@ const window_width = window.innerWidth / 2;
 
 canvas.height = window_height;
 canvas.width = window_width;
-canvas.style.background = "#ccc";
+canvas.style.background = "#000";
+
+// Cargar imagen de abeja
+const abejaImg = new Image();
+abejaImg.src = "lurr.png"; // Asegúrate de tener una imagen en la misma carpeta
 
 // Contadores de eliminación y nivel
 let totalCreated = 10;
@@ -15,45 +19,48 @@ let totalDeleted = 0;
 let level = 1;
 let speedMultiplier = 1;
 
-// Elemento para mostrar estadísticas
-const stats = document.createElement("div");
-stats.style.position = "absolute";
-stats.style.top = "10px";
-stats.style.left = "10px";
-stats.style.color = "white";
-stats.style.fontSize = "18px";
-stats.style.fontFamily = "Arial, sans-serif";
-document.body.appendChild(stats);
+// Elementos de la tarjeta Bootstrap
+const nivelElement = document.getElementById("nivel");
+const eliminadasElement = document.getElementById("eliminadas");
+const porcentajeElement = document.getElementById("porcentaje");
 
 // Cargar el audio
-const clickSound = new Audio("cho.mp3");  // Reemplaza con la ruta de tu archivo de audio
+const clickSound = new Audio("cho.mp3");
 
-// Clase Circle
-class Circle {
-    constructor(x, radius, color, speed) {
+// Clase Abeja
+class Abeja {
+    constructor(x, speed) {
         this.x = x;
-        this.y = window_height + radius;
-        this.radius = radius;
-        this.color = color;
+        this.y = window_height + 40;
+        this.width = 80;
+        this.height = 80;
         this.speedY = speed * speedMultiplier;
         this.speedX = (Math.random() - 0.5) * 2;
         this.opacity = 1;
         this.fading = false;
+        this.clicked = false;
         this.glow = 0;
-        this.clicked = false;  // Nueva propiedad para saber si el círculo fue clicado
+        this.hovered = false;
     }
 
     draw(context) {
-        context.beginPath();
-        context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        context.shadowBlur = this.glow;
-        context.shadowColor = this.color;
-        context.fillStyle = this.getColorWithOpacity();
+        context.save();
         context.globalAlpha = this.opacity;
-        context.fill();
-        context.globalAlpha = 1;
+
+        if (this.hovered) {
+            context.shadowBlur = 15;
+            context.shadowColor = "white";
+        }
+
+        if (this.glow > 0) {
+            context.shadowBlur = Math.max(context.shadowBlur, this.glow);
+            context.shadowColor = "yellow";
+        }
+
+        context.drawImage(abejaImg, this.x, this.y, this.width, this.height);
+
         context.shadowBlur = 0;
-        context.closePath();
+        context.restore();
     }
 
     move() {
@@ -61,134 +68,132 @@ class Circle {
         this.x += this.speedX;
         if (this.fading) {
             this.opacity -= 0.02;
+            if (this.opacity <= 0) {
+                this.opacity = 0;
+            }
         }
+
         if (this.glow > 0) {
             this.glow -= 1;
         }
     }
 
-    changeColor() {
-        const colors = ["red", "blue", "green", "yellow", "purple"];
-        this.color = colors[Math.floor(Math.random() * colors.length)];
-    }
-
-    getColorWithOpacity() {
-        return `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
-    }
-
-    hexToRgb(hex) {
-        const colors = {
-            white: "255,255,255",
-            red: "255,0,0",
-            blue: "0,0,255",
-            green: "0,255,0",
-            yellow: "255,255,0",
-            purple: "128,0,128"
-        };
-        return colors[hex] || "255,255,255";
-    }
-
     contains(mouseX, mouseY) {
-        const dx = this.x - mouseX;
-        const dy = this.y - mouseY;
-        return Math.sqrt(dx * dx + dy * dy) < this.radius;
+        return (
+            mouseX > this.x &&
+            mouseX < this.x + this.width &&
+            mouseY > this.y &&
+            mouseY < this.y + this.height
+        );
     }
 
-    isColliding(otherCircle) {
-        const dx = this.x - otherCircle.x;
-        const dy = this.y - otherCircle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < this.radius + otherCircle.radius;
+    isColliding(otherAbeja) {
+        return (
+            this.x < otherAbeja.x + otherAbeja.width &&
+            this.x + this.width > otherAbeja.x &&
+            this.y < otherAbeja.y + otherAbeja.height &&
+            this.y + this.height > otherAbeja.y
+        );
     }
 }
 
-const circles = [];
-const numberOfCircles = 10;
+const abejas = [];
+const numberOfAbejas = 10;
 
-function createCircles() {
-    for (let i = 0; i < numberOfCircles; i++) {
-        const radius = Math.random() * 30 + 20;
-        const x = Math.random() * (window_width - 2 * radius) + radius;
+function createAbejas() {
+    for (let i = 0; i < numberOfAbejas; i++) {
+        const x = Math.random() * (window_width - 40);
         const speed = (Math.random() * 1.5 + 0.5) * speedMultiplier;
-        const color = "white";
-        circles.push(new Circle(x, radius, color, speed));
+        abejas.push(new Abeja(x, speed));
     }
 }
 
-createCircles();
+createAbejas();
 
 canvas.addEventListener("mousemove", (event) => {
     const { offsetX, offsetY } = event;
-    circles.forEach(circle => {
-        if (circle.contains(offsetX, offsetY)) {
-            circle.changeColor();
-        }
+    abejas.forEach((abeja) => {
+        abeja.hovered = abeja.contains(offsetX, offsetY);
     });
 });
 
 canvas.addEventListener("click", (event) => {
     const { offsetX, offsetY } = event;
-    circles.forEach(circle => {
-        if (circle.contains(offsetX, offsetY)) {
-            if (!circle.clicked) {  // Solo contar si no ha sido clicado antes
-                circle.clicked = true;
-                circle.fading = true;
-                totalDeleted++;  // Incrementar contador solo si es clicado
-                clickSound.play();  // Reproducir el sonido
-                levelUp(); // Llamar la función levelUp inmediatamente después de eliminar un círculo
-            }
+    abejas.forEach((abeja, index) => {
+        if (abeja.contains(offsetX, offsetY) && !abeja.clicked) {
+            abeja.clicked = true;
+            abeja.fading = true;
+            totalDeleted++;
+            clickSound.play();
+            abejas.splice(index, 1); // Elimina la abeja al hacer clic
+            updateStats();
+            levelUp();
         }
     });
 });
 
+// Actualiza la tarjeta Bootstrap con los valores actuales
 function updateStats() {
-    const percentageDeleted = ((totalDeleted / totalCreated) * 100).toFixed(2);
-    stats.innerHTML = `Nivel: ${level} - Eliminados: ${totalDeleted} (${percentageDeleted}%)`;
+    let percentageDeleted = ((totalDeleted / totalCreated) * 100).toFixed(2);
+    nivelElement.innerText = level;
+    eliminadasElement.innerText = totalDeleted;
+    porcentajeElement.innerText = percentageDeleted + "%";
 }
 
+// Sube de nivel cada 10 eliminaciones
 function levelUp() {
-    // Si se han eliminado 10 círculos, incrementar nivel y ajusta la velocidad
     if (totalDeleted % 10 === 0) {
         level++;
-        if (level <= 10) {
-            speedMultiplier += 0.2;
-            circles.forEach(circle => {
-                circle.speedY *= 1.2;
-            });
+        console.log(`🆙 Nivel subido a: ${level}`);
+
+        speedMultiplier += 0.2;
+        abejas.forEach((abeja) => {
+            abeja.speedY *= 1.2;
+        });
+
+        // Generar más abejas en el nuevo nivel
+        for (let i = 0; i < 5; i++) {
+            const x = Math.random() * (window_width - 40);
+            const speed = (Math.random() * 1.5 + 0.5) * speedMultiplier;
+            abejas.push(new Abeja(x, speed));
+            totalCreated++;
         }
+
+        updateStats();
     }
 }
 
 function animate() {
     ctx.clearRect(0, 0, window_width, window_height);
-    
-    circles.forEach((circle, index) => {
-        circle.move();
-        circle.draw(ctx);
-        
-        for (let j = index + 1; j < circles.length; j++) {
-            if (circle.isColliding(circles[j])) {
-                circle.glow = 20;
-                circles[j].glow = 20;
+
+    abejas.forEach((abeja, index) => {
+        abeja.move();
+        abeja.draw(ctx);
+
+        // Detectar colisiones y aplicar brillo
+        for (let i = 0; i < abejas.length; i++) {
+            for (let j = i + 1; j < abejas.length; j++) {
+                if (abejas[i].isColliding(abejas[j])) {
+                    abejas[i].glow = 20;
+                    abejas[j].glow = 20;
+                }
             }
         }
-        
-        if (circle.y + circle.radius < 0 || circle.opacity <= 0) {
-            circles.splice(index, 1);
+
+        if (abeja.y + abeja.height < 0 || abeja.opacity <= 0) {
+            abejas.splice(index, 1);
             updateStats();
         }
     });
-    
-    while (circles.length < numberOfCircles) {
-        const radius = Math.random() * 30 + 20;
-        const x = Math.random() * (window_width - 2 * radius) + radius;
+
+    while (abejas.length < numberOfAbejas) {
+        const x = Math.random() * (window_width - 40);
         const speed = (Math.random() * 1.5 + 0.5) * speedMultiplier;
-        const color = "white";
-        circles.push(new Circle(x, radius, color, speed));
+        abejas.push(new Abeja(x, speed));
         totalCreated++;
     }
-    
+
     requestAnimationFrame(animate);
 }
 
-animate();
+abejaImg.onload = animate;
