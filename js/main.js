@@ -1,6 +1,9 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+const fondo = new Image();
+fondo.src = "bl.jpeg"; 
+
 // Dimensiones del canvas
 const window_height = window.innerHeight / 2;
 const window_width = window.innerWidth / 2;
@@ -11,7 +14,7 @@ canvas.style.background = "#000";
 
 // Cargar imagen de abeja
 const abejaImg = new Image();
-abejaImg.src = "lurr.png"; // Asegúrate de tener una imagen en la misma carpeta
+abejaImg.src = "lurr.png"; 
 
 // Contadores de eliminación y nivel
 let totalCreated = 10;
@@ -125,7 +128,7 @@ canvas.addEventListener("click", (event) => {
             abeja.fading = true;
             totalDeleted++;
             clickSound.play();
-            abejas.splice(index, 1); // Elimina la abeja al hacer clic
+            abejas.splice(index, 1);
             updateStats();
             levelUp();
         }
@@ -165,6 +168,9 @@ function levelUp() {
 
 function animate() {
     ctx.clearRect(0, 0, window_width, window_height);
+    
+    // Dibujar el fondo antes de las abejas
+    ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
 
     abejas.forEach((abeja, index) => {
         abeja.move();
@@ -196,4 +202,7 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-abejaImg.onload = animate;
+// Esperar a que el fondo cargue antes de iniciar la animación
+fondo.onload = function () {
+    animate();
+};
